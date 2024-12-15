@@ -6,14 +6,13 @@ import aider
 
 def fetch_latest_version(package_name):
     """Fetch the latest version of the specified package from PyPI."""
+    url = f"https://pypi.org/pypi/{package_name}/json"
     try:
-        response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
+        response = requests.get(url)
         response.raise_for_status()  # Raise an error for bad responses
         return response.json()["info"]["version"]
     except requests.RequestException as err:
-        raise RuntimeError(f"Error fetching version from PyPI: {err}")
-
-
+        raise RuntimeError(f"Error fetching version from PyPI: {err}") from err
 def parse_version(version):
     """Parse a version string into a Version object for comparison."""
     try:
@@ -27,14 +26,16 @@ def is_update_available(latest_version, current_version):
     return parse_version(latest_version) > parse_version(current_version)
 
 
+def construct_upgrade_command():
+    """Construct the appropriate upgrade command based on the environment."""
+    py = sys.executable
+    return "pipx upgrade aider-chat" if "pipx" in py else f"{py} -m pip install --upgrade aider-chat"
+
+
 def print_update_instructions(latest_version, print_cmd):
     """Print instructions for upgrading the package if a new version is available."""
-    print_cmd(f"Newer version v{latest_version} is available. To upgrade, run:")
-    py = sys.executable
-    upgrade_command = "pipx upgrade aider-chat" if "pipx" in py else f"{py} -m pip install --upgrade aider-chat"
-    print_cmd(upgrade_command)
-
-
+    upgrade_command = construct_upgrade_command()
+    print_cmd(f"Newer version v{latest_version} is available. To upgrade, run:\n{upgrade_command}")
 def check_for_updates(package_name, current_version, print_cmd):
     """Check for the latest version of the package and notify if an update is available."""
     try:
