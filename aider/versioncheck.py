@@ -1,35 +1,47 @@
 import sys
-
 import packaging.version
 import requests
-
 import aider
 
 
-def check_version(print_cmd):
+def fetch_latest_version(package_name):
+    """Fetch the latest version of the specified package from PyPI."""
     try:
-        response = requests.get("https://pypi.org/pypi/aider-chat/json")
-        data = response.json()
-        latest_version = data["info"]["version"]
-        current_version = aider.__version__
+        response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
+        response.raise_for_status()  # Raise an error for bad responses
+        return response.json()["info"]["version"]
+    except requests.RequestException as err:
+        raise RuntimeError(f"Error fetching version from PyPI: {err}")
 
-        is_update_available = packaging.version.parse(latest_version) > packaging.version.parse(
-            current_version
-        )
 
-        if is_update_available:
-            print_cmd(
-                f"Newer version v{latest_version} is available. To upgrade, run:"  # noqa: E231
-            )
-            py = sys.executable
-            if "pipx" in py:
-                print_cmd("pipx upgrade aider-chat")
-            else:
-                print_cmd(f"{py} -m pip install --upgrade aider-chat")
+def is_update_available(latest_version, current_version):
+    """Check if an update is available by comparing versions."""
+    return packaging.version.parse(latest_version) > packaging.version.parse(current_version)
 
-        return is_update_available
-    except Exception as err:
-        print_cmd(f"Error checking pypi for new version: {err}")
+
+def print_update_instructions(latest_version, print_cmd):
+    """Print instructions for upgrading the package if a new version is available."""
+    print_cmd(f"Newer version v{latest_version} is available. To upgrade, run:")
+    py = sys.executable
+    if "pipx" in py:
+        print_cmd("pipx upgrade aider-chat")
+    else:
+        print_cmd(f"{py} -m pip install --upgrade aider-chat")
+
+
+def check_version(print_cmd):
+    """Check for the latest version of the package and notify if an update is available."""
+    package_name = "aider-chat"
+    current_version = aider.__version__
+
+    try:
+        latest_version = fetch_latest_version(package_name)
+        if is_update_available(latest_version, current_version):
+            print_update_instructions(latest_version, print_cmd)
+            return True
+        return False
+    except RuntimeError as err:
+        print_cmd(err)
         return False
 
 
